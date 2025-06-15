@@ -153,29 +153,57 @@ class GRBLServoSender:
         x_offset = row * 0.26
         y_offset = column * 0.5
         
+        # 位置補正関数
+        def row_correction(r):
+            # 個別オフセット値
+            row_offsets = {
+                0: -0.08,
+                1: -0.05,
+                2: -0.02,
+                3: 0,
+                4: 0.01,
+                5: 0.05,
+                6: 0.08,
+                7: 0.1,
+                8: 0.12,
+                9: 0.15
+            }
+            return row_offsets.get(r, 0)  # 範囲外の場合は0を返す
+        
+        def column_correction(c):
+            # 1次近似: column補正 = -0.0275*c - 0.0125
+            return -0.0275 * c - 0.0125
+        
+        # 補正値を適用
+        x_correction = row_correction(row)
+        y_correction = column_correction(column)
+        
+        x_offset += x_correction
+        y_offset += y_correction
+        
         # 基本座標にオフセットを追加
         self.send_command("M3 S255")
         self.send_command(f"X{0.12 + x_offset} Y{0.07 + y_offset}")
         self.send_command("M3 S0")
         self.send_command(f"Y{0.33 + y_offset}")
-        self.send_command("M3 S255")
+        #self.send_command("M3 S255")
         self.send_command(f"X{0.15 + x_offset} Y{0.37 + y_offset}")
         self.send_command("M3 S0")
         self.send_command(f"Y{0.03 + y_offset}")
-        self.send_command("M3 S255")
+        #self.send_command("M3 S255")
         self.send_command(f"X{0.2 + x_offset} Y{0.01 + y_offset}")
         self.send_command("M3 S0")
         self.send_command(f"Y{0.39 + y_offset}")
-        self.send_command("M3 S255")
+        #self.send_command("M3 S255")
         self.send_command(f"X{0.25 + x_offset} Y{0.37 + y_offset}")
         self.send_command("M3 S0")
         self.send_command(f"Y{0.03 + y_offset}")
-        self.send_command("M3 S255")
+        #self.send_command("M3 S255")
         self.send_command(f"X{0.28 + x_offset} Y{0.07 + y_offset}")
         self.send_command("M3 S0")
         self.send_command(f"Y{0.33 + y_offset}")
         self.send_command("M3 S255")
-        self.send_command("X0 Y0")
+        self.send_command("X0")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
