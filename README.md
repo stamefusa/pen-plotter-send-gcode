@@ -8,25 +8,91 @@ GRBL-Servoベースのペンプロッターにマークシート塗りつぶし�
 - マークシートの指定位置への自動マーク塗りつぶし
 - 行・列番号に基づく座標オフセット計算
 - ホーミング、リセット、ステータス確認機能
+- FastAPIベースのWebAPI提供
 
 ## 必要な環境
 
 - Python 3.x
 - pyserial ライブラリ
+- FastAPI
+- uvicorn
 - GRBL-Servo対応のArduino/ペンプロッター
 
 ## インストール
 
 ```bash
-pip install pyserial
+# uvパッケージマネージャーを使用
+uv sync
+
+# または従来のpipを使用
+pip install pyserial fastapi uvicorn[standard]
 ```
 
 ## 使用方法
 
-### 基本的な使用
+### WebAPI サーバーの起動
 
-1. シリアルポートを確認・設定
-2. `main.py`を実行
+```bash
+python main.py
+```
+
+サーバーは `http://localhost:8080` で起動します。
+
+### API エンドポイント
+
+#### 1. ペンプロッタでマーク描画
+```
+GET /mark?row={行番号}&column={列番号}
+```
+
+**パラメータ:**
+- `row` (int): 行番号（0から開始）
+- `column` (int): 列番号（0から開始）
+
+**使用例:**
+```bash
+curl "http://localhost:8080/mark?row=4&column=4"
+```
+
+**レスポンス例:**
+```json
+{
+  "message": "行 4, 列 4 にマークしました"
+}
+```
+
+#### 2. プロッタステータス確認
+```
+GET /status
+```
+
+**使用例:**
+```bash
+curl "http://localhost:8080/status"
+```
+
+**レスポンス例:**
+```json
+{
+  "status": "<Idle|MPos:0.000,0.000,0.000|FS:0,0|WCO:0.000,0.000,0.000>"
+}
+```
+
+#### 3. API情報
+```
+GET /
+```
+
+**レスポンス例:**
+```json
+{
+  "message": "Pen Plotter API"
+}
+```
+
+### 基本的なスタンドアロン使用
+
+シリアルポートを設定して直接実行する場合：
 
 ```python
 # ポート設定例

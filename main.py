@@ -1,6 +1,11 @@
 import serial
 import time
 import sys
+from fastapi import FastAPI, HTTPException
+import uvicorn
+from contextlib import asynccontextmanager
+
+plotter = None
 
 class GRBLServoSender:
     def __init__(self, port, baudrate=115200):
@@ -172,32 +177,54 @@ class GRBLServoSender:
         self.send_command("M3 S255")
         self.send_command("X0 Y0")
 
-# 使用例
-if __name__ == "__main__":
-    # ポート名を環境に合わせて変更してください
-    # Windows: 'COM3', 'COM4' など
-    # Linux/Mac: '/dev/ttyUSB0', '/dev/ttyACM0' など
-    PORT = '/dev/cu.usbmodem2201'  # ここを適切なポートに変更
-    
-    sender = GRBLServoSender(PORT)
-    
-    if sender.connect():
-        try:
-            # ホーミング実行
-            sender.home()
-            # 現在位置をワーキング座標系の原点に設定
-            sender.send_command("G92X0Y0")
-            
-            # マークシートの指定行目指定列目にマークする
-            sender.mark_position(4, 4)
-                        
-            # ステータス確認
-            sender.get_status()
-            
-        except KeyboardInterrupt:
-            print("\n中断されました")
-            sender.reset()
-        finally:
-            sender.disconnect()
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    global plotter
+    PORT = '/dev/cu.usbmodem2201'
+    plotter = GRBLServoSender(PORT)
+    if plotter.connect():
+        plotter.home()
+        plotter.send_command("G92X0Y0")
+        print("ペンプロッタ初期化完了")
     else:
-        print("接続に失敗しました")
+        print("ペンプロッタ接続失敗")
+        plotter = None
+    yield
+    if plotter:
+        plotter.disconnect()
+        print("ペンプロッタ接続終了")
+
+app = FastAPI(
+    title="Pen Plotter API",
+    description="ペンプロッタ制御API",
+    lifespan=lifespan
+)
+
+@app.get("/")
+async def read_root():
+    return {"message": "Pen Plotter API"}
+
+@app.get("/mark")
+async def mark_position(row: int, column: int):
+    if plotter is None:
+        raise HTTPException(status_code=503, detail="ペンプロッタが接続されていません")
+    
+    try:
+        plotter.mark_position(row, column)
+        return {"message": f"行 {row}, 列 {column} にマークしました"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"マーク処理エラー: {str(e)}")
+
+@app.get("/status")
+async def get_status():
+    if plotter is None:
+        raise HTTPException(status_code=503, detail="ペンプロッタが接続されていません")
+    
+    try:
+        status = plotter.get_status()
+        return {"status": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ステータス取得エラー: {str(e)}")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)
